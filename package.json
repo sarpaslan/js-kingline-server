@@ -1,0 +1,17 @@
+{
+  "name": "kinglineserver",
+  "version": "0.0.1",
+  "description": "Game Server",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "sarpaslan",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "express": "^4.18.3",
+    "parcel-bundler": "^1.12.5",
+    "socket.io": "^4.7.5"
+  }
+}
