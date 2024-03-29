@@ -10,8 +10,8 @@ const io = new Server(server, {
 
 let players = new Map();
 let lobbies = [];
-const startCountdown = 1;
-const beginTime = 5;
+const startCountdown = 10;
+const maxTime = 20;
 const fps = 30;
 
 function onRequestGame(socket, language) {
@@ -38,7 +38,8 @@ function onRequestGame(socket, language) {
       state: "waiting",
       currentPlayerId: -1,
       currentPlayerIndex: -1,
-      time: beginTime,
+      time: maxTime,
+      maxTime: maxTime,
     };
     lobbies.push(newLobby);
     console.log("there is no avaible lobby for this user", newLobby.code)
@@ -51,16 +52,22 @@ function joinLobby(socket, code) {
   console.log("player wants to join lobby with code", code);
   var player = players.get(socket.id);
   const lobby = lobbies.find((lobby) => lobby.code === code);
+  console.log(lobby.maxTime);
   lobby.players.push(player);
   player.lobby = code;
   io.to(code).emit("player-joined-lobby", player);
   socket.join(code);
+  console.log("player joined lobby", code);
   socket.emit("lobby-joined", lobby);
   if (lobby.players.length >= 2 && lobby.state === "waiting") {
     startLobby(lobby);
   }
 }
 function startLobby(lobby) {
+  lobby.time = maxTime;
+  lobby.maxTime = maxTime;
+
+  console.log("startLobby maxTime:" + lobby.maxTime);
   lobby.state = "countdown";
   io.to(lobby.code).emit("start-countdown", startCountdown);
   setTimeout(() => {
@@ -175,7 +182,7 @@ function reset(lobby) {
     lobby.players[i].heart = 2;
     lobby.players[i].eliminated = false;
   }
-  lobby.time = beginTime;
+  lobby.time = maxTime;
   lobby.state = "waiting";
   io.to(lobby.code).emit("reset");
 }
@@ -220,7 +227,15 @@ function changeTurn(lobby) {
     lobby.currentPlayerIndex = newIndex;
     lobby.currentPlayerId = lobby.players[newIndex].id;
     console.log("turn changed to player", lobby.players[newIndex].name);
-    io.to(lobby.code).emit("turn-changed", lobby.currentPlayerId);
+
+    lobby.maxTime = lobby.maxTime - 1;
+    lobby.time = lobby.maxTime;
+    io.to(lobby.code).emit("turn-changed",
+      {
+        currentPlayerId: lobby.currentPlayerId,
+        maxTime: lobby.maxTime,
+        time: lobby.time
+      });
   }
   else {
     gameOver(lobby);
@@ -237,7 +252,6 @@ function onUpdate(frame) {
     if (lobby.state === "game") {
       if (lobby.time <= 0) {
         lobyTimeout(lobby);
-        lobby.time = beginTime;
       }
       else {
         lobby.time -= 1 / fps;
