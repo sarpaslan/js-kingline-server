@@ -71,18 +71,27 @@ function login(socket, name) {
   if (name.length < 3 || name.length > 12) {
     return;
   }
-  var player = {
+  let player = players.get(socket.id);
+  player.id = socket.id;
+  player.name = name;
+  player.lobby = null;
+  player.language = "en";
+  player.heart = 2;
+  player.eliminated = false;
+  players.set(socket.id, player);
+  socket.emit("logged-in");
+}
+io.on("connection", (socket) => {
+
+  let player = {
     id: socket.id,
-    name: name,
+    name: "",
     lobby: null,
     language: "en",
     heart: 2,
     eliminated: false,
   };
   players.set(socket.id, player);
-  socket.emit("logged-in");
-}
-io.on("connection", (socket) => {
 
   socket.on("looking-for-game", (language) => {
     onRequestGame(socket, language);
@@ -90,18 +99,27 @@ io.on("connection", (socket) => {
   socket.on("join-lobby", (code) => {
     joinLobby(socket, code);
   });
-
   socket.on("login", (name) => {
     login(socket, name);
   });
-
   socket.on("disconnect", () => {
     leaveLobby(socket);
+    if (players.delete(socket.id)) {
+      console.log("User disconnected " + players.size);
+    }
   });
 });
 
 function leaveLobby(socket) {
   const player = players.get(socket.id);
+  if (player === undefined || player == null) {
+    console.log("player doesnt exist");
+    return;
+  }
+  if (player.lobby === null) {
+    console.log("player is not in a lobby");
+    return;
+  }
   for (let i = 0; i < lobbies.length; i++) {
     if (player.lobby == lobbies[i].code) {
       const lobby = lobbies[i];
@@ -133,9 +151,9 @@ function leaveLobby(socket) {
     }
   }
 }
+
 function gameOver(lobby) {
   lobby.state = "ending";
-
   if (lobby.players.length > 1) {
     var winner = lobby.players.filter((player) => !player.eliminated);
     if (winner.length == 0) {
